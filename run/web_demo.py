@@ -10,34 +10,40 @@ from utils import load_model, generate_response
 def predict(user_input: str,
             chat_history: list,
             model, proc, device):
-    # chat_history + 新输入
-    past = []
-    for q, r in chat_history:
-        past.extend([q, r])
-    past.append(user_input)
-    
-    if user_input[-1] not in [',', '。', '！', '？']:
+    '''chat_history + 新输入'''
+    if user_input and user_input[-1] not in [',', '。', '！', '？', '~']:
         user_input += random.choice(['。', '！', '？'])
     
+    past = []
+    for msg in chat_history:
+        past.append(msg["content"])
+    past.append(user_input)
+    
     response = generate_response(model, proc, past, device)
-    chat_history = chat_history + [(user_input, response)]
+    
+    chat_history = chat_history + [
+        {"role": "user", "content": user_input},
+        {"role": "assistant", "content": response}
+    ]
     
     return chat_history, chat_history
 
-def regenerate(chat_history: list,
-               model, proc, device):
+def regenerate(chat_history: list, model, proc, device):
     if not chat_history:
         return [], []
-    last_q, _ = chat_history[-1]
-    chat_history = chat_history[:-1]
     
-    past = []
-    for q, r in chat_history:
-        past.extend([q, r])
-    past.append(last_q)
+    last_assistant = chat_history.pop()
+    last_user = chat_history.pop()
     
-    response = generate_response(model, proc, past, device)
-    chat_history = chat_history + [(last_q, response)]
+    past = [msg["content"] for msg in chat_history]
+    past.append(last_user["content"])
+    
+    new_resp = generate_response(model, proc, past, device)
+    
+    chat_history += [
+        last_user,
+        {"role": "assistant", "content": new_resp}
+    ]
     
     return chat_history, chat_history
 
@@ -55,7 +61,7 @@ def deploy(model_path: str, tokenizer_path: str, device):
             """<center><font size=3>This WebUI is based on GPT-style ChatBot, developed by Z.Y. Lin.</center>""")
 
         # Chatbot 组件 & 状态 & 文本输入
-        chatbot = gr.Chatbot(label="ChatBot", height=400)
+        chatbot = gr.Chatbot(label="ChatBot", height=400, type="messages")
         state = gr.State([])  # 用来存放 list of (q, r)
         txt = gr.Textbox(lines=2,
                          placeholder="请输入中文...",
@@ -111,7 +117,7 @@ def deploy(model_path: str, tokenizer_path: str, device):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--model', type=str, default='chatbot_epoch.pt')
+    parser.add_argument('--model', type=str, default='chatbot_epoch3.pt')
     parser.add_argument('--tokenizer', type=str, default='tokenizer.json')
     args = parser.parse_args()
     
