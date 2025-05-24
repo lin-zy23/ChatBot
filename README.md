@@ -2,6 +2,10 @@
 
 > 一个从零开始训练和实现的小型 Transformer 语言模型，支持命令行交互和 Gradio Web UI 部署。
 
+```bash
+git clone https://github.com/lin-zy23/ChatBot.git
+cd ChatBot
+
 ## 特性
 
 * 🎓 **从零开始**：自主实现了数据预处理、词表构建、模型定义、训练与评估流程
@@ -77,13 +81,13 @@ python train.py --devices 0,1 --distributed --epochs 5
 ### 命令行交互
 
 ```bash
-python Chatbot.py --model chatbot_epoch5.pt --tokenizer tokenizer.json
+python run/chatbot.py --model chatbot_epoch5.pt --tokenizer tokenizer.json
 ```
 
 ### Gradio Web 界面
 
 ```bash
-python web_demo.py --model chatbot_epoch5.pt --tokenizer tokenizer.json
+python run/web_demo.py --model chatbot_epoch5.pt --tokenizer tokenizer.json
 ```
 
 ## 许可证
