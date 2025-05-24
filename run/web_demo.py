@@ -17,7 +17,7 @@ def predict(user_input: str,
     past.append(user_input)
     
     if user_input[-1] not in [',', '。', '！', '？']:
-        user_input += random.choice(['。', '！', '？', ''])
+        user_input += random.choice(['。', '！', '？'])
     
     response = generate_response(model, proc, past, device)
     chat_history = chat_history + [(user_input, response)]
