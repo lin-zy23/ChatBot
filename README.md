@@ -21,12 +21,13 @@ ChatBot
 │       ├── lccc_base_train
 │       ├── lccc_base_valid
 │       └── lccc_base_test
-├── model.py
+├── run/
+│   ├── utils.py
+│   ├── chatbot.py
+│   └── web_demo.py
 ├── data.py
+├── model.py
 ├── train.py
-├── call.py
-├── Chatbot.py
-├── web_demo.py
 ```
 
 ## 克隆仓库
