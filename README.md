@@ -77,8 +77,6 @@ python train.py --devices 0 --epochs 5
 python train.py --devices 0,1 --distributed --epochs 5
 ```
 
-训练结束后，会在当前目录生成 `chatbot_epoch{epoch}.pt` 格式的模型权重。
-
 ## 推理 & 部署
 
 ### 命令行交互
