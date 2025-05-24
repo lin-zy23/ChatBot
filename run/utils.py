@@ -45,7 +45,7 @@ def generate_response(model: ChatbotModel,
             seq.extend(proc.encode(h))
         inp = torch.tensor([seq], device=device)
         
-        puncts = [proc.word_to_idx[p] for p in ['，', '。', '？', '！', '<EOS>', '<UNK>']]
+        puncts = [proc.word_to_idx[p] for p in ['，', '。', '！', '？', '<EOS>', '<UNK>']]
         
         def apply_repetition_penalty(logits: torch.Tensor, generated: List[int]):
             for tok in set(generated):
