@@ -21,9 +21,9 @@ ChatBot
 │       ├── lccc_base_valid
 │       └── lccc_base_test
 ├── run/
-│   ├── utils.py
 │   ├── chatbot.py
-│   └── web_demo.py
+│   ├── web_demo.py
+│   └── utils.py
 ├── data.py
 ├── model.py
 ├── train.py
