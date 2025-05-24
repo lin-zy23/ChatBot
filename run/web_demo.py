@@ -117,7 +117,7 @@ def deploy(model_path: str, tokenizer_path: str, device):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--model', type=str, default='chatbot_epoch3.pt')
+    parser.add_argument('--model', type=str, default='chatbot_epoch.pt')
     parser.add_argument('--tokenizer', type=str, default='tokenizer.json')
     args = parser.parse_args()
     
