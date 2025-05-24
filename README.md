@@ -1,6 +1,6 @@
 # 小型中文语言模型
 
-> 一个从零开始实现并训练的小型 Transformer 语言模型，支持命令行交互和 Gradio Web UI 部署。
+> 一个从零开始训练和实现的小型 Transformer 语言模型，支持命令行交互和 Gradio Web UI 部署。
 
 ## 特性
 
