@@ -2,6 +2,8 @@
 
 > 一个从零开始训练和实现的小型 Transformer 语言模型，支持命令行交互和 Gradio Web UI 部署。
 
+## 克隆仓库
+
 ```bash
 git clone https://github.com/lin-zy23/ChatBot.git
 cd ChatBot
