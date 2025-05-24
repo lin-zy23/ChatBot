@@ -31,7 +31,7 @@ def interactive_chat(model, proc, device):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model", type=str, default="chatbot_epoch.pt")
+    parser.add_argument("--model", type=str, default="chatbot.pt")
     parser.add_argument("--tokenizer", type=str, default="tokenizer.json")
     args = parser.parse_args()
 
