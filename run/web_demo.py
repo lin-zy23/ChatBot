@@ -7,45 +7,50 @@ import gradio as gr
 from utils import load_model, generate_response
 
 
+PUNCTS = ['。', '！', '？']
+
 def predict(user_input: str,
             chat_history: list,
             model, proc, device):
-    '''chat_history + 新输入'''
-    if user_input and user_input[-1] not in [',', '。', '！', '？', '~']:
-        user_input += random.choice(['。', '！', '？'])
+    original = user_input
     
-    past = []
-    for msg in chat_history:
-        past.append(msg["content"])
-    past.append(user_input)
+    prompt_input = original
+    if prompt_input and prompt_input[-1] not in [',','。','！','？','~']:
+        prompt_input += random.choice(PUNCTS)
     
+    past = [msg["content"] for msg in chat_history] + [prompt_input]
     response = generate_response(model, proc, past, device)
     
     chat_history = chat_history + [
-        {"role": "user", "content": user_input},
+        {"role": "user", "content": original},
         {"role": "assistant", "content": response}
     ]
-    
+
     return chat_history, chat_history
 
 def regenerate(chat_history: list, model, proc, device):
-    if not chat_history:
+    if len(chat_history) < 2:
         return [], []
     
     last_assistant = chat_history.pop()
-    last_user = chat_history.pop()
+    last_user      = chat_history.pop()
     
-    past = [msg["content"] for msg in chat_history]
-    past.append(last_user["content"])
+    original = last_user["content"]
     
+    prompt_input = original
+    if prompt_input and prompt_input[-1] not in [',','。','！','？','~']:
+        prompt_input += random.choice(PUNCTS)
+    
+    past = [msg["content"] for msg in chat_history] + [prompt_input]
     new_resp = generate_response(model, proc, past, device)
     
     chat_history += [
         last_user,
         {"role": "assistant", "content": new_resp}
     ]
-    
+
     return chat_history, chat_history
+
 
 def clear_history():
     return [], []
@@ -117,7 +122,7 @@ def deploy(model_path: str, tokenizer_path: str, device):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--model', type=str, default='chatbot_epoch.pt')
+    parser.add_argument('--model', type=str, default='chatbot.pt')
     parser.add_argument('--tokenizer', type=str, default='tokenizer.json')
     args = parser.parse_args()
     
