@@ -17,7 +17,7 @@ def interactive_chat(model, proc, device):
             break
         
         if q[-1] not in [',', '。', '！', '？']:
-            q += random.choice(['。', '！', '？', ''])
+            q += random.choice(['。', '！', '？'])
         
         past = []
         for prev_q, prev_r in chat_history:
