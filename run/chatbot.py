@@ -16,7 +16,7 @@ def interactive_chat(model, proc, device):
             print("\n结束对话。")
             break
         
-        if q[-1] not in [',', '。', '！', '？']:
+        if q[-1] not in [',', '。', '！', '？', '~']:
             q += random.choice(['。', '！', '？'])
         
         past = []
