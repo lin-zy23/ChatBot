@@ -1,2 +1,91 @@
-# ChatBot
-Training and Implementing a Small Language Model from Scratch
+# 小型中文语言模型
+
+> 一个从零开始实现并训练的小型 Transformer 语言模型，支持命令行交互和 Gradio Web UI 部署。
+
+## 特性
+
+* 🎓 **从零开始**：自主实现了数据预处理、词表构建、模型定义、训练与评估流程
+* 🤖 **采用 GPT-style 的 Transformer 架构**
+* 💬 **多模式交互**：
+
+  * 命令行聊天（`Chatbot.py`）
+  * Gradio Web 界面（`web_demo.py`）
+* ⚙️ **轻量化**：可在小规模数据集（`data/` 文件夹）上快速试验
+
+## 目录结构
+
+```
+ChatBot
+├── data/
+│   └── lccc/
+│       ├── lccc_base_train
+│       ├── lccc_base_valid
+│       └── lccc_base_test
+├── model.py
+├── data.py
+├── train.py
+├── call.py
+├── Chatbot.py
+├── web_demo.py
+```
+
+## 环境依赖
+
+```bash
+# 创建并激活 conda 环境
+conda create -n chatbot python=3.8 -y
+conda activate chatbot
+
+# 安装 PyTorch 1.11.0 + CUDA 11.5
+pip install torch==1.11.0+cu115 -f https://download.pytorch.org/whl/cu115/torch_stable.html
+
+# 安装其他依赖
+pip install tqdm gradio
+```
+
+## 数据集准备
+
+请将训练/验证/测试集放在 `data/lccc/` 目录下，格式如下：
+
+```
+data/lccc/
+├── lccc_base_train/LCCC-base_train.jsonl
+├── lccc_base_valid/LCCC-base_valid.jsonl
+└── lccc_base_test/LCCC-base_test.jsonl
+```
+
+每行一个 JSON 数组，示例：
+
+```json
+["你好", "你好，有什么可以帮您？", "我想了解模型训练流程", "好的，首先……"]
+```
+
+## 模型训练
+
+```bash
+# 单卡训练
+python train.py --devices 0 --epochs 5
+
+# 多卡分布式训练
+python train.py --devices 0,1 --distributed --epochs 5
+```
+
+训练结束后，会在当前目录生成 `chatbot_epoch{epoch}.pt` 格式的模型权重。
+
+## 推理 & 部署
+
+### 命令行交互
+
+```bash
+python Chatbot.py --model chatbot_epoch5.pt --tokenizer tokenizer.json
+```
+
+### Gradio Web 界面
+
+```bash
+python web_demo.py --model chatbot_epoch5.pt --tokenizer tokenizer.json
+```
+
+## 许可证
+
+本项目基于 Apache License 2.0 开源，详见 [LICENSE](LICENSE) 文件。
