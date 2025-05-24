@@ -84,13 +84,13 @@ python train.py --devices 0,1 --distributed --epochs 5
 ### 命令行交互
 
 ```bash
-python run/chatbot.py --model chatbot_epoch5.pt --tokenizer tokenizer.json
+python run/chatbot.py --model chatbot.pt --tokenizer tokenizer.json
 ```
 
 ### Gradio Web 界面
 
 ```bash
-python run/web_demo.py --model chatbot_epoch5.pt --tokenizer tokenizer.json
+python run/web_demo.py --model chatbot.pt --tokenizer tokenizer.json
 ```
 
 ## 许可证
