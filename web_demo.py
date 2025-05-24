@@ -1,4 +1,5 @@
 import argparse
+import random
 
 import torch
 import gradio as gr
@@ -14,6 +15,9 @@ def predict(user_input: str,
     for q, r in chat_history:
         past.extend([q, r])
     past.append(user_input)
+    
+    if user_input[-1] not in [',', '。', '！', '？']:
+        user_input += random.choice(['。', '！', '？', ''])
     
     response = generate_response(model, proc, past, device)
     chat_history = chat_history + [(user_input, response)]
