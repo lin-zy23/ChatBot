@@ -3,7 +3,7 @@ import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import json
-from typing import List
+from typing import List, Tuple
 
 import torch
 import torch.nn as nn
@@ -14,7 +14,7 @@ from model import ChatbotModel
 
 def load_model(model_path: str,
                tokenizer_path: str,
-               device) -> tuple[nn.Module, TextProcessor]:
+               device) -> Tuple[nn.Module, TextProcessor]:
     with open(tokenizer_path, "r", encoding="utf-8") as f:
         word_to_idx = json.load(f)
     idx_to_word = {v: k for k, v in word_to_idx.items()}
