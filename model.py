@@ -69,7 +69,6 @@ class ChatbotModel(nn.Module):
                           diagonal=1)
 
     def forward(self, idx: torch.Tensor, mask: torch.Tensor = None) -> torch.Tensor:
-        # idx: [batch, seq_len]
         B, L = idx.size()
         assert L <= self.max_len, "Sequence length exceeds model capacity."
         
