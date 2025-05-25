@@ -79,7 +79,7 @@ python train.py --devices 0 --epochs 5
 python train.py --devices 0,1 --distributed --epochs 5
 ```
 
-## 推理 & 部署
+## 聊天 & 部署
 
 ### 命令行交互
 
