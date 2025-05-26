@@ -22,10 +22,10 @@ def load_model(model_path: str,
     proc = TextProcessor(word_to_idx, idx_to_word)
     model = ChatbotModel(nvoc=len(word_to_idx)).to(device)
     
-    model = nn.DataParallel(model)
+    # model = nn.DataParallel(model)
     checkpoint = torch.load(model_path, map_location=device)
     model.load_state_dict(checkpoint)
-    model = model.module
+    # model = model.module
     model.eval()
 
     return model, proc
