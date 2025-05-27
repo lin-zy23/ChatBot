@@ -31,9 +31,9 @@ class TransformerBlock(nn.Module):
 class ChatbotModel(nn.Module):
     def __init__(self,
                  nvoc: int,
-                 dim: int = 512,
-                 nhead: int = 8,
-                 num_layers: int = 6,
+                 dim: int = 384,
+                 nhead: int = 6,
+                 num_layers: int = 4,
                  dropout: float = 0.1,
                  attn_drop: float = 0.1,
                  emb_drop: float = 0.1,
