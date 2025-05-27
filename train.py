@@ -89,7 +89,7 @@ def train_model(model: ChatbotModel,
             "weight_decay": 0.0,
         },
     ]
-    optimizer = AdamW(optimizer_grouped_parameters, lr=3e-4, eps=1e-8)
+    optimizer = AdamW(optimizer_grouped_parameters, lr=5e-4, eps=1e-8)
     
     train_steps = len(train_loader) * num_epochs
     warmup_steps = int(0.1 * train_steps)
@@ -98,8 +98,8 @@ def train_model(model: ChatbotModel,
         if current_step < warmup_steps:
             return float(current_step) / float(max(1, warmup_steps))
         return max(
-            0.0,
-            float(train_steps - current_step) / float(max(1, train_steps - warmup_steps))
+            1.0,
+            0.05 + float(train_steps - current_step) / float(max(1, train_steps - warmup_steps))
         )
 
     scheduler = LambdaLR(optimizer, lr_lambda)
@@ -159,8 +159,7 @@ def main():
         local_rank = init_distributed()
         device = torch.device(f"cuda:{local_rank}")
     else:
-        device_ids = list(map(int, args.devices.split(',')))
-        device = torch.device(f"cuda:{device_ids[0]}" if torch.cuda.is_available() else "cpu")
+        device = torch.device(f"cuda:0" if torch.cuda.is_available() else "cpu")
     
     train_pairs = load_pairs_from_jsonl(
         "data/lccc/lccc_base_train/LCCC-base_train.jsonl")
@@ -180,23 +179,24 @@ def main():
     if args.distributed:
         train_sampler = DistributedSampler(train_dataset)
         train_loader = DataLoader(train_dataset, 
-                                  batch_size=32, 
+                                  batch_size=64, 
                                   sampler=train_sampler, 
                                   collate_fn=lambda b: collate_fn(b, pad_idx))
     else:
         train_loader = DataLoader(train_dataset, 
-                                  batch_size=32, 
+                                  batch_size=64, 
                                   shuffle=True, 
                                   collate_fn=lambda b: collate_fn(b, pad_idx))
     
     valid_dataset = ChatDataset(valid_pairs, proc, max_len=512)
     valid_loader = DataLoader(valid_dataset, 
-                              batch_size=32,
+                              batch_size=64,
                               collate_fn=lambda b: collate_fn(b, pad_idx))
     
     model = ChatbotModel(nvoc=len(proc.word_to_idx),
-                         dim=512, nhead=8, num_layers=6,
+                         dim=384, nhead=6, num_layers=4,
                          max_len=512, dropout=0.1).to(device)
+    
     if args.distributed:
         model = nn.parallel.DistributedDataParallel(model, device_ids=[local_rank])
     
