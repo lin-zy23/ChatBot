@@ -1,4 +1,5 @@
 import os
+import glob
 import json
 import math
 import argparse
@@ -11,7 +12,7 @@ import torch.nn as nn
 from torch.optim import AdamW
 from torch.optim.lr_scheduler import LambdaLR
 from torch.utils.data import DataLoader
-from torch.utils.data.distributed import DistributedSampler
+from torch.cuda.amp import autocast, GradScaler
 from torch.nn.utils.rnn import pad_sequence
 
 from data import TextProcessor, ChatDataset
@@ -19,9 +20,8 @@ from model import ChatbotModel
 
 
 def init_distributed():
-    dist.init_process_group(backend="nccl")
+    dist.init_process_group(backend="nccl", init_method="env://",)
     local_rank = int(os.environ["LOCAL_RANK"])
-    torch.cuda.set_device(local_rank)
     return local_rank
 
 def cleanup_distributed():
@@ -31,23 +31,16 @@ def collate_fn(batch: List[torch.Tensor], pad_idx: int) -> torch.Tensor:
     seqs = pad_sequence(batch, batch_first=True, padding_value=pad_idx)
     return seqs  # [batch, L_max]
 
-def load_pairs_from_jsonl(path: str) -> List[List[str]]:
-    pairs = []
-    with open(path, "r", encoding="utf-8") as f:
-        for line in f:
-            arr = json.loads(line.strip())
-            for i in range(len(arr) - 1):
-                q, r = arr[i], arr[i + 1]
-                pairs.append([q, r])
-    return pairs
-
 def evaluate_perplexity(model: ChatbotModel, dataloader, 
                         criterion, device) -> float:
     model.eval()
     total_loss = 0.0
     total_tokens = 0
+    loop = tqdm(dataloader, desc="Step", total=len(dataloader), 
+                    leave=False, mininterval=60, miniters=100)
+    
     with torch.no_grad():
-        for seqs in dataloader:
+        for seqs in loop:
             seqs = seqs.to(device)
             inputs  = seqs[:, :-1]
             targets = seqs[:, 1:]
@@ -58,9 +51,9 @@ def evaluate_perplexity(model: ChatbotModel, dataloader,
                 mask = model._causal_mask(inputs.size(1), device)
                 
             logits = model(inputs, mask)  # [B, L-1, V]
-            
             loss = criterion(logits.reshape(-1, logits.size(-1)),
                              targets.reshape(-1))
+            
             ntokens = (targets != pad_idx).sum().item()
             total_loss += loss.item() * ntokens
             total_tokens += ntokens
@@ -71,8 +64,8 @@ def evaluate_perplexity(model: ChatbotModel, dataloader,
 def train_model(model: ChatbotModel,
                 train_loader,
                 valid_loader,
-                criterion: nn.Module,
-                device: torch.device,
+                criterion,
+                device,
                 num_epochs: int = 10,
                 print_every: int = 1000,
                 distributed: bool = False):    
@@ -89,29 +82,25 @@ def train_model(model: ChatbotModel,
             "weight_decay": 0.0,
         },
     ]
-    optimizer = AdamW(optimizer_grouped_parameters, lr=5e-4, eps=1e-8)
+    optimizer = AdamW(optimizer_grouped_parameters, lr=3e-4, eps=1e-8)
     
     train_steps = len(train_loader) * num_epochs
     warmup_steps = int(0.1 * train_steps)
     
-    def lr_lambda(current_step: int):
-        if current_step < warmup_steps:
-            return float(current_step) / float(max(1, warmup_steps))
-        return max(
-            1.0,
-            0.05 + float(train_steps - current_step) / float(max(1, train_steps - warmup_steps))
-        )
-
+    def lr_lambda(step):
+        if step < warmup_steps:
+            return step / warmup_steps
+        progress = (step - warmup_steps) / (train_steps - warmup_steps)
+        return 0.5 * (1.0 + math.cos(math.pi * progress))
+    
     scheduler = LambdaLR(optimizer, lr_lambda)
     
+    scaler = GradScaler()
     for epoch in trange(1, num_epochs + 1, desc="Epoch"):
         model.train()
-        if distributed:
-            train_loader.sampler.set_epoch(epoch)
-        
         total_loss = 0.0
-        loop = tqdm(train_loader, desc="Step", 
-                    total=len(train_loader), leave=False)
+        loop = tqdm(train_loader, desc="Step", total=len(train_loader), 
+                    leave=False, mininterval=60, miniters=100)
         
         for step, seqs in enumerate(loop, 1):
             seqs = seqs.to(device)           # [B, L]
@@ -124,13 +113,16 @@ def train_model(model: ChatbotModel,
                 mask = model._causal_mask(inputs.size(1), device)
     
             optimizer.zero_grad()
-            logits = model(inputs, mask)     # [B, L-1, V]
-            loss = criterion(logits.reshape(-1, logits.size(-1)),
-                             targets.reshape(-1))
-            loss.backward()
+            with autocast():
+                logits = model(inputs, mask)
+                loss = criterion(logits.reshape(-1, logits.size(-1)),
+                                targets.reshape(-1))
+           
+            scaler.scale(loss).backward()
+            scaler.unscale_(optimizer)
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
-            
-            optimizer.step()
+            scaler.step(optimizer)
+            scaler.update()
             scheduler.step()
             
             total_loss += loss.item()
@@ -139,62 +131,79 @@ def train_model(model: ChatbotModel,
                 if (not distributed) or (dist.get_rank() == 0):
                     print(f"\n[Epoch {epoch}] Step {step}/{len(train_loader)}  AvgLoss={avg:.4f}")
                 total_loss = 0.0
+                torch.save(model.state_dict(), f"chatbot_epoch{epoch}.pt")
 
         if not distributed or dist.get_rank() == 0:
+            torch.save(model.state_dict(), f"chatbot_epoch{epoch}.pt")
             ppl = evaluate_perplexity(model, valid_loader, criterion, device)
             print(f"\n→ Epoch {epoch} completed. Validation Perplexity: {ppl:.2f}\n")
-            
-            torch.save(model.state_dict(), f"chatbot_epoch{epoch}.pt")
+        
+        if distributed:
+            dist.barrier()
 
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--devices", type=str, default="0")
-    parser.add_argument("--distributed", action="store_true")
+    parser.add_argument("--distributed", action="store_true", default=False)
     parser.add_argument("--epochs", type=int, default=5)
     args = parser.parse_args()
     
-    os.environ['CUDA_VISIBLE_DEVICES'] = args.devices
+    if args.devices:
+        os.environ["CUDA_VISIBLE_DEVICES"] = args.devices
+    
     if args.distributed:
         local_rank = init_distributed()
-        device = torch.device(f"cuda:{local_rank}")
+        torch.cuda.set_device(local_rank)
+        device = torch.device(f"cuda:{local_rank}" if torch.cuda.is_available() else "cpu")
     else:
-        device = torch.device(f"cuda:0" if torch.cuda.is_available() else "cpu")
+        local_rank = 0
+        torch.cuda.set_device(local_rank)
+        device = torch.device(f"cuda:{local_rank}" if torch.cuda.is_available() else "cpu")
     
-    train_pairs = load_pairs_from_jsonl(
-        "data/lccc/lccc_base_train/LCCC-base_train.jsonl")
-    valid_pairs = load_pairs_from_jsonl(
-        "data/lccc/lccc_base_valid/LCCC-base_valid.jsonl")
+    all_files = sorted(glob.glob("data/chinese-cosmopedia/data/*.parquet"))
+    train_paths = all_files[:-1]
+    valid_paths = all_files[-1:]
     
-    # 构建词汇表
-    proc = TextProcessor()
-    proc.build_vocab(train_pairs, min_freq=3)
+    with open("tokenizer.json", "r", encoding="utf-8") as fr:
+        word_to_idx = json.load(fr)
+    
+    idx_to_word = {i: w for w, i in word_to_idx.items()}
+    proc = TextProcessor(word_to_idx=word_to_idx, idx_to_word=idx_to_word)
     global pad_idx
     pad_idx = proc.word_to_idx["<PAD>"]
     
-    with open("tokenizer.json", "w", encoding="utf-8") as fw:
-        json.dump(proc.word_to_idx, fw, ensure_ascii=False, indent=2)
+    train_dataset = ChatDataset(train_paths, proc, max_len=512)
+    valid_dataset = ChatDataset(valid_paths, proc, max_len=512)
     
-    train_dataset = ChatDataset(train_pairs, proc, max_len=512)
     if args.distributed:
-        train_sampler = DistributedSampler(train_dataset)
-        train_loader = DataLoader(train_dataset, 
-                                  batch_size=64, 
-                                  sampler=train_sampler, 
+        train_loader = DataLoader(train_dataset,
+                                  batch_size=32,
+                                  num_workers=32,
+                                  pin_memory=True,
                                   collate_fn=lambda b: collate_fn(b, pad_idx))
-    else:
-        train_loader = DataLoader(train_dataset, 
-                                  batch_size=64, 
-                                  shuffle=True, 
+        
+        valid_loader = DataLoader(valid_dataset,
+                                  batch_size=32,
+                                  num_workers=32,
+                                  pin_memory=True,
                                   collate_fn=lambda b: collate_fn(b, pad_idx))
     
-    valid_dataset = ChatDataset(valid_pairs, proc, max_len=512)
-    valid_loader = DataLoader(valid_dataset, 
-                              batch_size=64,
-                              collate_fn=lambda b: collate_fn(b, pad_idx))
+    else:
+        train_loader = DataLoader(train_dataset,
+                                  batch_size=32,
+                                  num_workers=32,
+                                  pin_memory=True,
+                                  collate_fn=lambda b: collate_fn(b, pad_idx))
+        
+        valid_loader = DataLoader(valid_dataset,
+                                  batch_size=32,
+                                  num_workers=32,
+                                  pin_memory=True,
+                                  collate_fn=lambda b: collate_fn(b, pad_idx))
     
     model = ChatbotModel(nvoc=len(proc.word_to_idx),
-                         dim=384, nhead=6, num_layers=4,
+                         dim=768, nhead=12, num_layers=12,
                          max_len=512, dropout=0.1).to(device)
     
     if args.distributed:
@@ -202,10 +211,11 @@ def main():
     
     criterion = nn.CrossEntropyLoss(ignore_index=pad_idx)
     
-    print("▶ Start training")
+    print("▶ Start training\n")
     train_model(model, train_loader, valid_loader, criterion, device, 
-                num_epochs=args.epochs, print_every=10000, 
+                num_epochs=args.epochs, print_every=100000, 
                 distributed=args.distributed)
+    print("✅ Training completed.\n")
     
     if args.distributed:
         cleanup_distributed()
