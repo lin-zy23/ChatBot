@@ -6,22 +6,18 @@
 
 ## 特点
 
-* 🎓 **快速入门**：从零搭建，覆盖数据预处理、词表构建、模型实现、训练与评估的完整流程，代码结构简单清晰
+* 🎓 **快速入门**：从零搭建亿级参数量语言模型，覆盖数据预处理、词表构建、模型实现、训练与评估的完整流程，代码结构清晰
 * 🤖 **采用 GPT-style 的 Transformer 架构**
 * 💬 **多模式交互**：
   * 命令行聊天（`run/chatbot.py`）
   * Gradio Web 界面（`run/web_demo.py`）
-* ⚙️ **轻量化**：显存占用低，参数量仅10.0M，可在小规模数据集上快速试验
 
 ## 目录结构
 
 ```
 ChatBot
 ├── data/
-│   └── lccc/
-│       ├── lccc_base_train
-│       ├── lccc_base_valid
-│       └── lccc_base_test
+│   └── chinese-cosmopedia
 ├── run/
 │   ├── chatbot.py
 │   ├── web_demo.py
@@ -57,10 +53,11 @@ pip install tqdm gradio
 请将训练/验证/测试集放在 `data/lccc/` 目录下（下载地址：[https://huggingface.co/datasets/silver/lccc/tree/main](https://huggingface.co/datasets/silver/lccc/tree/main)），格式如下：
 
 ```
-data/lccc/
-├── lccc_base_train/LCCC-base_train.jsonl
-├── lccc_base_valid/LCCC-base_valid.jsonl
-└── lccc_base_test/LCCC-base_test.jsonl
+data/chinese-cosmopedia/data/
+├── 00000.parquet
+├── 00001.parquet
+├── ……
+└── 00057.parquet
 ```
 
 每行一个 JSON 数组，示例：
@@ -75,8 +72,8 @@ data/lccc/
 # 单卡训练
 python train.py --devices 0 --epochs 5
 
-# 多卡分布式训练
-python train.py --devices 0,1 --distributed --epochs 5
+# 多卡分布式训练（以双卡为例）
+OMP_NUM_THREADS=2 CUDA_VISIBLE_DEVICES=0,1 python -u -m torch.distributed.run --nproc_per_node=2 train.py --distributed --devices 0,1 --epochs 5
 ```
 
 ## 聊天 & 部署
