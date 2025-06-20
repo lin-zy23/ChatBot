@@ -15,8 +15,8 @@ def predict(user_input: str,
     original = user_input
     
     prompt_input = original
-    if prompt_input and prompt_input[-1] not in [',','。','！','？','~']:
-        prompt_input += random.choice(PUNCTS)
+    # if prompt_input and prompt_input[-1] not in [',','。','！','？','~']:
+    #     prompt_input += random.choice(PUNCTS)
     
     past = [msg["content"] for msg in chat_history] + [prompt_input]
     response = generate_response(model, proc, past, device)
