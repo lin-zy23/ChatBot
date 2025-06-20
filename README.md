@@ -50,7 +50,7 @@ pip install tqdm gradio
 
 ## 数据集准备
 
-请将训练/验证/测试集放在 `data/lccc/` 目录下（下载地址：[https://huggingface.co/datasets/silver/lccc/tree/main](https://huggingface.co/datasets/silver/lccc/tree/main)），格式如下：
+请将训练/验证/测试集放在 `data/lccc/` 目录下（下载地址：[https://modelscope.cn/datasets/opencsg/chinese-cosmopedia](https://modelscope.cn/datasets/opencsg/chinese-cosmopedia)），格式如下：
 
 ```
 data/chinese-cosmopedia/data/
