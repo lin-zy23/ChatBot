@@ -7,11 +7,8 @@ import gradio as gr
 from utils import load_model, generate_response
 # from pyngrok import ngrok
 
-
 # tunnel = ngrok.connect(7860, bind_tls=True)
 # print(" * ngrok tunnel:", tunnel.public_url)
-
-PUNCTS = ['。', '！', '？']
 
 
 def predict(user_input: str,
@@ -44,7 +41,7 @@ def regenerate(chat_history: list, model, proc, device):
     
     prompt_input = original
     if prompt_input and prompt_input[-1] not in [',','。','！','？','~']:
-        prompt_input += random.choice(PUNCTS)
+        prompt_input += random.choice(['。', '！', '？'])
     
     past = [msg["content"] for msg in chat_history] + [prompt_input]
     new_resp = generate_response(model, proc, past, device)
