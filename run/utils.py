@@ -36,8 +36,7 @@ def generate_response(model: ChatbotModel,
                       device,
                       max_len: int = 512,
                       temperature: float = 0.8,
-                      top_p: float = 0.9,
-                      repetition_penalty: float = 1.1) -> str:
+                      top_p: float = 0.9) -> str:
     model.eval()
     with torch.no_grad():
         seq = [proc.word_to_idx["<BOS>"]]
@@ -45,30 +44,24 @@ def generate_response(model: ChatbotModel,
             seq.extend(proc.encode(h))
         inp = torch.tensor([seq], device=device)
         
-        # puncts = [proc.word_to_idx[p] for p in ['，', '。', '！', '？', '<EOS>', '<UNK>']]
+        puncts = [proc.word_to_idx[p] for p in [' ', '\n', '<EOS>', '<UNK>', 
+                                                ',', '。', '！', '？', ',', '.', '!', '?']]
         
-        # def apply_repetition_penalty(logits: torch.Tensor, generated: List[int]):
-        #     for tok in set(generated):
-        #         logits[tok] /= repetition_penalty
-        #     return logits
-
         outs = []
         for _ in range(max_len):
             inp = inp[:, -max_len:]
             mask = model._causal_mask(inp.size(1), device)
             
             logits = model(inp, mask)[0, -1] / temperature
-            # logits = apply_repetition_penalty(logits, outs)
             probs = torch.softmax(logits, dim=-1)
             
             if not outs:
                 probs[proc.word_to_idx["<EOS>"]] = 0
                 probs = probs / probs.sum()
             
-            # if outs and outs[-1] in puncts:
-            #     for p in puncts:
-            #         probs[p] = 0
-            #     probs = probs / probs.sum()
+            if outs and outs[-1] in puncts:
+                probs[outs[-1]] = 0
+                probs = probs / probs.sum()
             
             sorted_probs, sorted_idx = torch.sort(probs, descending=True)
             cum_probs = torch.cumsum(sorted_probs, dim=0)
@@ -83,6 +76,6 @@ def generate_response(model: ChatbotModel,
             if nxt == proc.word_to_idx["<EOS>"]:
                 break
             
-            inp = torch.cat([inp, torch.tensor([[nxt]], device=device)], dim=1)
+            inp = torch.cat([inp[:, -max_len + 1:], torch.tensor([[nxt]], device=device)], dim=1)
         
         return proc.decode(outs)
