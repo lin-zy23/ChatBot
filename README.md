@@ -22,6 +22,7 @@ ChatBot
 │   ├── chatbot.py
 │   ├── web_demo.py
 │   └── utils.py
+├── tokenizer.json
 ├── data.py
 ├── model.py
 ├── train.py
